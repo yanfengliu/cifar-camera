@@ -75,6 +75,7 @@ SDRAM_HandleTypeDef hsdram1;
 
 /* USER CODE BEGIN PV */
 uint16_t data[176 * 144];
+uint8_t image[176][144];
 
 /* USER CODE END PV */
 
@@ -109,10 +110,6 @@ int main(void)
   /* USER CODE BEGIN 1 */
 	printf("Hello, world!\n");
 	memset(data, 0, sizeof(data)/sizeof(uint16_t));
-//	for (int i = 0; i < sizeof(data); i++){
-//		data[i] = 0;
-//	}
-	int i = sizeof(data);
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -141,35 +138,41 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   OV7670_init(&hi2c1);
-  HAL_DCMI_Start_DMA(&hdcmi, DCMI_MODE_CONTINUOUS, (uint32_t) &data, sizeof(data)/4);
 
-	while(!captured);
-	uint8_t buffer[10];
-	memset(buffer, 0, 10);
-	for (int i = 0; i < 176 * 144; i++){
-		sprintf(buffer, "%d\r\n", data[i]);
-		int k = strlen(buffer);
-		for(int j=0;j<strlen(buffer);j++)
-		{
-			HAL_UART_Transmit(&huart1, &buffer[j], 1, 1000);
-		}
-	}
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+  	// PA0 is the blue push button
+  	if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET){
+  		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_SET);
+  		HAL_DCMI_Start_DMA(&hdcmi, DCMI_MODE_CONTINUOUS, (uint32_t) &data, sizeof(data)/4);
+			while(!captured);
+//			uint8_t buffer[10];
+//			memset(buffer, 0, 10);
+//			for (int i = 0; i < 176 * 144; i++){
+//				sprintf(buffer, "%d\r\n", data[i]);
+//				int k = strlen(buffer);
+//				for(int j=0;j<strlen(buffer);j++)
+//				{
+//					HAL_UART_Transmit(&huart1, &buffer[j], 1, 1000);
+//				}
+//			}
+
+  	} else {
+  		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_RESET);
+  	}
 
 
-		}
 
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
-
+}
 
 /**
   * @brief System Clock Configuration
@@ -438,6 +441,15 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : Blue_Button_Pin */
+  GPIO_InitStruct.Pin = Blue_Button_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(Blue_Button_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pin : PA8 */
   GPIO_InitStruct.Pin = GPIO_PIN_8;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -445,6 +457,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   GPIO_InitStruct.Alternate = GPIO_AF0_MCO;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PG13 */
+  GPIO_InitStruct.Pin = GPIO_PIN_13;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 
 }
 
