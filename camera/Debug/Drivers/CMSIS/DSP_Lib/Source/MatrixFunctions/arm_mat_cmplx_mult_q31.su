@@ -1,2 +1,1 @@
-arm_math.h:484:25:clip_q63_to_q31	32	static
-arm_mat_cmplx_mult_q31.c:75:12:arm_mat_cmplx_mult_q31	144	static
+arm_mat_cmplx_mult_q31.c:64:12:arm_mat_cmplx_mult_q31	192	static

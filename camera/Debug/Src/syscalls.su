@@ -1,4 +1,4 @@
-core_cm4.h:1872:26:ITM_SendChar	16	static
+core_cm4.h:2049:26:ITM_SendChar	16	static
 syscalls.c:71:6:initialise_monitor_handles	4	static
 syscalls.c:75:5:_getpid	4	static
 syscalls.c:80:5:_kill	16	static

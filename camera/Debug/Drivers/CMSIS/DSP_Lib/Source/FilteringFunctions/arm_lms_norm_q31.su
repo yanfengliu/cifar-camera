@@ -1,3 +1,1 @@
-arm_math.h:484:25:clip_q63_to_q31	32	static
-arm_math.h:563:28:arm_recip_q31	72	static
-arm_lms_norm_q31.c:80:6:arm_lms_norm_q31	232	static
+arm_lms_norm_q31.c:68:6:arm_lms_norm_q31	456	static

@@ -1,3 +1,1 @@
-arm_math.h:5805:24:arm_circularWrite_f32	32	static
-arm_math.h:5850:24:arm_circularRead_f32	40	static
-arm_fir_sparse_q31.c:66:6:arm_fir_sparse_q31	248	static
+arm_fir_sparse_q31.c:55:6:arm_fir_sparse_q31	400	static

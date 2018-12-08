@@ -1,1 +1,9 @@
-arm_rfft_fast_init_f32.c:65:12:arm_rfft_fast_init_f32	24	static
+arm_rfft_fast_init_f32.c:47:12:arm_rfft_32_fast_init_f32	24	static
+arm_rfft_fast_init_f32.c:71:12:arm_rfft_64_fast_init_f32	24	static
+arm_rfft_fast_init_f32.c:95:12:arm_rfft_128_fast_init_f32	24	static
+arm_rfft_fast_init_f32.c:119:12:arm_rfft_256_fast_init_f32	24	static
+arm_rfft_fast_init_f32.c:143:12:arm_rfft_512_fast_init_f32	24	static
+arm_rfft_fast_init_f32.c:167:12:arm_rfft_1024_fast_init_f32	24	static
+arm_rfft_fast_init_f32.c:191:12:arm_rfft_2048_fast_init_f32	24	static
+arm_rfft_fast_init_f32.c:215:12:arm_rfft_4096_fast_init_f32	24	static
+arm_rfft_fast_init_f32.c:246:12:arm_rfft_fast_init_f32	24	static

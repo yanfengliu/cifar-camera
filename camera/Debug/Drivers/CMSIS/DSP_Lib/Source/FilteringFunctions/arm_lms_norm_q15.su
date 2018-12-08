@@ -1,2 +1,1 @@
-arm_math.h:614:28:arm_recip_q15	48	static
-arm_lms_norm_q15.c:79:6:arm_lms_norm_q15	248	static
+arm_lms_norm_q15.c:67:6:arm_lms_norm_q15	272	static
