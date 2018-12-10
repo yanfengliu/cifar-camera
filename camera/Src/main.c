@@ -43,6 +43,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "ov7670.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -184,6 +185,20 @@ int main(void)
   a = 1;
   float floater_data[10];
   arm_q7_to_float(output_data, floater_data, 10);
+
+	HAL_DCMI_Start_DMA(&hdcmi, DCMI_MODE_CONTINUOUS, (uint32_t) &data, sizeof(data)/4);
+	while(!captured);
+	uint8_t buffer[10];
+	memset(buffer, 0, 10);
+	for (int i = 0; i < 176 * 144; i++){
+		sprintf(buffer, "%d\r\n", data[i]);
+		int k = strlen(buffer);
+		for(int j=0;j<strlen(buffer);j++)
+		{
+			HAL_UART_Transmit(&huart1, &buffer[j], 1, 1000);
+		}
+	}
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -191,24 +206,16 @@ int main(void)
   while (1)
   {
   	// PA0 is the blue push button
-  	if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET){
-  		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_SET);
-  		HAL_DCMI_Start_DMA(&hdcmi, DCMI_MODE_CONTINUOUS, (uint32_t) &data, sizeof(data)/4);
-			while(!captured);
-//			uint8_t buffer[10];
-//			memset(buffer, 0, 10);
-//			for (int i = 0; i < 176 * 144; i++){
-//				sprintf(buffer, "%d\r\n", data[i]);
-//				int k = strlen(buffer);
-//				for(int j=0;j<strlen(buffer);j++)
-//				{
-//					HAL_UART_Transmit(&huart1, &buffer[j], 1, 1000);
-//				}
-//			}
+//  	if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET)
+  	{
+//  		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_SET);
 
-  	} else {
-  		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_RESET);
+
   	}
+//  	else
+//  	{
+//  		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_RESET);
+//  	}
 
 
 
