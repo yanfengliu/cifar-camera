@@ -12,25 +12,41 @@
 uint16_t DevAddress = 0x0021;
 
 // OV7670 camera settings
-#define OV7670_REG_NUM 			123
+//#define OV7670_REG_NUM 			124
 #define OV7670_WRITE_ADDR 	0x42
 
 // Image settings
 #define IMG_ROWS   					144
 #define IMG_COLUMNS   			174
 
-const uint8_t OV7670_reg[OV7670_REG_NUM][2] = {
-		{ 0x12, 0x80 },   // reset register values to default
+
+#define COM7								0x12
+#define COM3								0x0C
+#define COM10								0x15
+#define CLKRC								0x11
+#define COM14								0x3E
+#define HREF								0x32
+#define DBLV								0x6B
+#define COM11								0x3B
+#define SCALING_XSC					0x70
+#define SCALING_YSC					0x71
+#define SCALING_DCWCTR			0x72
+#define SCALING_PCLK_DIV		0x73
+#define SCALING_PCLK_DELAY	0xA2
+
+const uint8_t OV7670_reg[][2] = {
+		{ COM7, 0x80 },   // reset register values to default
 
 		// Image format
-		{ 0x12, 0x08 },		// 0x14 = QVGA size, RGB mode; 0x08 = QCIF, YUV, 0x0c = QCIF (RGB)
-		{ 0x0c, 0x08 }, 	// enable scale manual adjustment
-		{ 0x11, 0x40 }, 	// use external clock directly
+		{ COM7, 0x08 },		// 0x14 = QVGA size, RGB mode; 0x08 = QCIF, YUV, 0x0c = QCIF (RGB)
+		{ COM3, 0x08 }, 	// enable scale manual adjustment
+//		{ COM14, 0x12 },  // manual scaling enabled, added by JC
+		{ CLKRC, 0x40 }, 	// use external clock directly
 		{ 0xb0, 0x84 },		// Color mode (Not documented??)
 
 		// Hardware window
-		{ 0x11, 0x01 },		//PCLK settings, 15fps
-		{ 0x32, 0x80 },		//HREF
+		{ CLKRC, 0x01 },		//PCLK settings, 15fps
+		{ HREF, 0x80 },		//HREF
 		{ 0x17, 0x17 },		//HSTART
 		{ 0x18, 0x05 },		//HSTOP
 		{ 0x03, 0x0a },		//VREF
@@ -38,11 +54,11 @@ const uint8_t OV7670_reg[OV7670_REG_NUM][2] = {
 		{ 0x1a, 0x7a },		//VSTOP
 
 		// Scaling numbers
-		{ 0x70, 0x3f },		//X_SCALING
-		{ 0x71, 0x3f },		//Y_SCALING
-		{ 0x72, 0x11 },		//DCW_SCALING
-		{ 0x73, 0xf0 },		//PCLK_DIV_SCALING
-		{ 0xa2, 0x02 },		//PCLK_DELAY_SCALING
+		{ SCALING_XSC, 0x3a },		//X_SCALING
+		{ SCALING_YSC, 0x35 },		//Y_SCALING
+		{ SCALING_DCWCTR, 0x11 },		//DCW_SCALING
+		{ SCALING_PCLK_DIV, 0xf0 },		//PCLK_DIV_SCALING
+		{ SCALING_PCLK_DELAY, 0x02 },		//PCLK_DELAY_SCALING
 
 		// Matrix coefficients
 		{ 0x4f, 0x80 }, //
@@ -118,7 +134,7 @@ const uint8_t OV7670_reg[OV7670_REG_NUM][2] = {
 		{ 0x77, 0x01 }, //
 		{ 0xb8, 0x0a }, //
 		{ 0x41, 0x18 }, //
-		{ 0x3b, 0x12 }, //
+		{ COM11, 0x12 }, //
 		{ 0xa4, 0x88 }, //
 		{ 0x96, 0x00 }, //
 		{ 0x97, 0x30 }, //
@@ -146,7 +162,7 @@ const uint8_t OV7670_reg[OV7670_REG_NUM][2] = {
 		{ 0x4d, 0x40 }, //
 		{ 0x4e, 0x20 }, //
 		{ 0x69, 0x00 }, //
-		{ 0x6b, 0x3a }, //
+		{ DBLV, 0x3a }, //
 		{ 0x74, 0x10 }, //
 		{ 0x8d, 0x4f }, //
 		{ 0x8e, 0x00 }, //
@@ -165,14 +181,15 @@ void OV7670_init(I2C_HandleTypeDef* p_hi2c1){
 	uint8_t data[2];
 	data[0] = OV7670_reg[0][0];
 	data[1] = OV7670_reg[0][1];
-	HAL_I2C_Master_Transmit(p_hi2c1, DevAddress<<1, &data, 2, 1000);
+	HAL_I2C_Master_Transmit(p_hi2c1, DevAddress<<1, data, 2, 1000);
 	HAL_Delay(2);
 
 	// write all the settings to OV7670
-	for (int i = 1; i < OV7670_REG_NUM; i++){
+	int numWrites = sizeof(OV7670_reg)/2;
+	for (int i = 1; i < numWrites; i++){
 		uint8_t data[2];
 		data[0] = OV7670_reg[i][0];
 		data[1] = OV7670_reg[i][1];
-		HAL_I2C_Master_Transmit(p_hi2c1, DevAddress<<1, &data, 2, 1000);
+		HAL_I2C_Master_Transmit(p_hi2c1, DevAddress<<1, data, 2, 1000);
 	}
 }
