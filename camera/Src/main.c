@@ -58,7 +58,15 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+#define INPUT_MEAN_SHIFT {125,123,114}
+#define INPUT_RIGHT_SHIFT {8,8,8}
+#define __SSAT(ARG1,ARG2) \
+__extension__ \
+({                          \
+  int32_t __RES, __ARG1 = (ARG1); \
+  __ASM ("ssat %0, %1, %2" : "=r" (__RES) :  "I" (ARG2), "r" (__ARG1) ); \
+  __RES; \
+ })
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -102,6 +110,7 @@ q7_t output_data[IP1_OUT_DIM];
 
 q7_t col_buffer[3200];
 q7_t scratch_buffer[40960];
+float floater_data[10];
 
 void run_nn() {
 
@@ -117,6 +126,7 @@ void run_nn() {
   arm_relu_q7(buffer1, RELU3_OUT_DIM*RELU3_OUT_DIM*RELU3_OUT_CH);
   arm_avepool_q7_HWC(buffer1, POOL3_IN_DIM, POOL3_IN_CH, POOL3_KER_DIM, POOL3_PAD, POOL3_STRIDE, POOL3_OUT_DIM, col_buffer, buffer2);
   arm_fully_connected_q7_opt(buffer2, ip1_wt, IP1_IN_DIM, IP1_OUT_DIM, IP1_BIAS_LSHIFT, IP1_OUT_RSHIFT, ip1_bias, output_data, (q15_t*)col_buffer);
+  arm_softmax_q7(output_data, 10, output_data);
 }
 /* USER CODE END PV */
 
@@ -132,7 +142,7 @@ static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 int captured = 0;
 float32_t image[32*32*3];
-static const char *categories[] = {"airplane","automobile","bird","car","deer","dog", "frog", "horse", "ship", "truck"};
+static const char *categories[] = {"airplane","automobile","bird","cat","deer","dog", "frog", "horse", "ship", "truck"};
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -143,9 +153,24 @@ void HAL_DCMI_FrameEventCallback(DCMI_HandleTypeDef *hdcmi)
 	HAL_DCMI_Stop(hdcmi);
 }
 
-void capture_image(DCMI_HandleTypeDef* hdcmi, float32_t* image){
+void RGB_to_q7(uint8_t* image, q7_t* input_data){
+	int mean_data[3] = INPUT_MEAN_SHIFT;
+	unsigned int scale_data[3] = INPUT_RIGHT_SHIFT;
+
+	for (int i=0;i<32*32*3; i+=3) {
+		input_data[i] =   (q7_t)__SSAT( ((((int)image[i]   - mean_data[0])<<7) + (0x1<<(scale_data[0]-1)))
+														 >> scale_data[0], 8);
+		input_data[i+1] = (q7_t)__SSAT( ((((int)image[i+1] - mean_data[1])<<7) + (0x1<<(scale_data[1]-1)))
+														 >> scale_data[1], 8);
+		input_data[i+2] = (q7_t)__SSAT( ((((int)image[i+2] - mean_data[2])<<7) + (0x1<<(scale_data[2]-1)))
+														 >> scale_data[2], 8);
+	}
+}
+
+void capture_image(DCMI_HandleTypeDef* hdcmi, uint8_t* image){
 	uint16_t data[176 * 144];
 	memset(data, 0, sizeof(data)/sizeof(uint16_t));
+	captured = 0;
 	HAL_DCMI_Start_DMA(hdcmi, DCMI_MODE_CONTINUOUS, (uint32_t) &data, sizeof(data)/4);
 	while(!captured);
 
@@ -172,9 +197,9 @@ void capture_image(DCMI_HandleTypeDef* hdcmi, float32_t* image){
 			}
 			// downsampling to 32 x 32 x 3
 			if ((i % 4 == 3) && (j % 5 == 4) && (i < 131) && (j < 164)) {
-				R = (float32_t)((float)y + 1.402 * ((float)cr - 128.0));
-				G = (float32_t)((float)y - 0.34414 * ((float)cr - 128) - 0.71414 * ((float)cb - 128));
-				B = (float32_t)((float)y + 1.772 * ((float)cb - 128));
+				R = (uint8_t)((float)y + 1.402 * ((float)cr - 128.0));
+				G = (uint8_t)((float)y - 0.34414 * ((float)cr - 128) - 0.71414 * ((float)cb - 128));
+				B = (uint8_t)((float)y + 1.772 * ((float)cb - 128));
 				// saturate RGB
 				if (R > 255){
 					R = 255;
@@ -203,8 +228,8 @@ void capture_image(DCMI_HandleTypeDef* hdcmi, float32_t* image){
 	}
 	uint8_t buffer[10];
 	memset(buffer, 0, 10);
-	for (int i = 0; i < 32*32*3; i++){
-		sprintf(buffer, "%d\r\n", (uint8_t)image[i]);
+	for (int i = 0; i < 176*144; i++){
+		sprintf(buffer, "%d\r\n", data[i]);
 		for(int j=0;j<strlen(buffer);j++)
 		{
 			HAL_UART_Transmit(&huart1, &buffer[j], 1, 1000);
@@ -256,34 +281,43 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+//  	int max_idx = 0;
+//  	char class_text[20];
+//		strcpy(class_text, categories[max_idx]);
+//		uint8_t class_buffer[20];
+//		memset(class_buffer, 0, 20);
+//		sprintf(class_buffer, "%s\r\n", class_buffer);
+//		// send category string through nRF24L01
+//		NRF_transmit(class_buffer, 20);
+
   	// PA0 is the blue push button
   	if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET)
   	{
   		// light up LED to indicate recording status
   		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_SET);
-//  		// capture image
-//  		capture_image(&hdcmi, image);
-//  		// convert RGB float to q7 bit format
-//			arm_float_to_q7(image, input_data, 32*32*3*sizeof(float));
-//			// pass image to neural network
-//			run_nn();
-//			float floater_data[10];
-//			// convert q7 bit output to float
-//			arm_q7_to_float(output_data, floater_data, 10);
+  		// capture image
+  		capture_image(&hdcmi, image);
+  		// convert RGB float to q7 bit format
+			RGB_to_q7(image, input_data);
+			// pass image to neural network
+			run_nn();
+
+			// convert q7 bit output to float
+			arm_q7_to_float(output_data, floater_data, 10);
 			// pick argmax class string from output
-//			float max_val = -100;
+			float max_val = -100;
 			int max_idx = 0;
-//			for (int i = 0; i < 10; i++){
-//				if (floater_data[i] > max_val){
-//					max_val = floater_data[i];
-//					max_idx = i;
-//				}
-//			}
+			for (int i = 0; i < 10; i++){
+				if (floater_data[i] > max_val){
+					max_val = floater_data[i];
+					max_idx = i;
+				}
+			}
 			char class_text[20];
 			strcpy(class_text, categories[max_idx]);
 			uint8_t class_buffer[20];
 			memset(class_buffer, 0, 20);
-			sprintf(class_buffer, "%s\r\n", class_buffer);
+			sprintf(class_buffer, "%s", class_text);
 			// send category string through nRF24L01
 			NRF_transmit(class_buffer, 20);
   	}

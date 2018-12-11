@@ -79,12 +79,12 @@ static void writeRegisterArray(uint8_t reg, uint8_t val[], uint8_t len)
 //PC4 = CE, PC5 = CS
 static void ceHigh()
 {
-	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_5, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_SET);
 }
 
 static void ceLow()
 {
-	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_5, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_RESET);
 }
 
 //static uint8_t readRegister(uint8_t reg)
