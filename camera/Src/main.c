@@ -44,6 +44,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "ov7670.h"
+#include "spi.h"
+#include "nrf.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -82,7 +84,6 @@ UART_HandleTypeDef huart1;
 SDRAM_HandleTypeDef hsdram1;
 
 /* USER CODE BEGIN PV */
-uint16_t data[176 * 144];
 
 static q7_t conv1_wt[CONV1_IN_CH*CONV1_KER_DIM*CONV1_KER_DIM*CONV1_OUT_CH] = CONV1_WT;
 static q7_t conv1_bias[CONV1_OUT_CH] = CONV1_BIAS;
@@ -130,6 +131,8 @@ static void MX_SPI1_Init(void);
 static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 int captured = 0;
+float32_t image[32*32*3];
+static const char *categories[] = {"airplane","automobile","bird","car","deer","dog", "frog", "horse", "ship", "truck"};
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -140,7 +143,74 @@ void HAL_DCMI_FrameEventCallback(DCMI_HandleTypeDef *hdcmi)
 	HAL_DCMI_Stop(hdcmi);
 }
 
-int a;
+void capture_image(DCMI_HandleTypeDef* hdcmi, float32_t* image){
+	uint16_t data[176 * 144];
+	memset(data, 0, sizeof(data)/sizeof(uint16_t));
+	HAL_DCMI_Start_DMA(hdcmi, DCMI_MODE_CONTINUOUS, (uint32_t) &data, sizeof(data)/4);
+	while(!captured);
+
+	// resize image
+	uint8_t y;
+	uint8_t cb = 0;
+	uint8_t cr = 0;
+	int k = 0;
+	int h = 0;
+	int colorOrder;
+	float32_t R;
+	float32_t G;
+	float32_t B;
+
+	for (int i = 0; i < 144; i++){
+		colorOrder = 0;
+		for (int j = 0; j < 173; j++){
+			y = data[k] >> 8;
+			// undo Cb Cr sub-sampling
+			if (colorOrder % 2 == 0){
+				cb = data[k] & 0xff;
+			} else {
+				cr = data[k] & 0xff;
+			}
+			// downsampling to 32 x 32 x 3
+			if ((i % 4 == 3) && (j % 5 == 4) && (i < 131) && (j < 164)) {
+				R = (float32_t)((float)y + 1.402 * ((float)cr - 128.0));
+				G = (float32_t)((float)y - 0.34414 * ((float)cr - 128) - 0.71414 * ((float)cb - 128));
+				B = (float32_t)((float)y + 1.772 * ((float)cb - 128));
+				// saturate RGB
+				if (R > 255){
+					R = 255;
+				} else if (R < 0){
+					R = 0;
+				}
+				if (G > 255){
+					G = 255;
+				} else if (G < 0){
+					G = 0;
+				}
+				if (B > 255){
+					B = 255;
+				} else if (B < 0){
+					B = 0;
+				}
+				// the image to feed into the neural network has to be [RGB RGB ...] format
+				image[h] = R;
+				image[h+1] = G;
+				image[h+2] = B;
+				h = h + 3;
+			}
+			k = k + 1;
+			colorOrder = colorOrder + 1;
+		}
+	}
+	uint8_t buffer[10];
+	memset(buffer, 0, 10);
+	for (int i = 0; i < 32*32*3; i++){
+		sprintf(buffer, "%d\r\n", (uint8_t)image[i]);
+		for(int j=0;j<strlen(buffer);j++)
+		{
+			HAL_UART_Transmit(&huart1, &buffer[j], 1, 1000);
+		}
+	}
+}
 /* USER CODE END 0 */
 
 /**
@@ -151,7 +221,6 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 	printf("Hello, world!\n");
-	memset(data, 0, sizeof(data)/sizeof(uint16_t));
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -180,25 +249,7 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   OV7670_init(&hi2c1);
-  a = 5;
-  run_nn();
-  a = 1;
-  float floater_data[10];
-  arm_q7_to_float(output_data, floater_data, 10);
-
-	HAL_DCMI_Start_DMA(&hdcmi, DCMI_MODE_CONTINUOUS, (uint32_t) &data, sizeof(data)/4);
-	while(!captured);
-	uint8_t buffer[10];
-	memset(buffer, 0, 10);
-	for (int i = 0; i < 176 * 144; i++){
-		sprintf(buffer, "%d\r\n", data[i]);
-		int k = strlen(buffer);
-		for(int j=0;j<strlen(buffer);j++)
-		{
-			HAL_UART_Transmit(&huart1, &buffer[j], 1, 1000);
-		}
-	}
-
+  NRF_init();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -206,18 +257,40 @@ int main(void)
   while (1)
   {
   	// PA0 is the blue push button
-//  	if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET)
+  	if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET)
   	{
-//  		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_SET);
-
-
+  		// light up LED to indicate recording status
+  		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_SET);
+//  		// capture image
+//  		capture_image(&hdcmi, image);
+//  		// convert RGB float to q7 bit format
+//			arm_float_to_q7(image, input_data, 32*32*3*sizeof(float));
+//			// pass image to neural network
+//			run_nn();
+//			float floater_data[10];
+//			// convert q7 bit output to float
+//			arm_q7_to_float(output_data, floater_data, 10);
+			// pick argmax class string from output
+//			float max_val = -100;
+			int max_idx = 0;
+//			for (int i = 0; i < 10; i++){
+//				if (floater_data[i] > max_val){
+//					max_val = floater_data[i];
+//					max_idx = i;
+//				}
+//			}
+			char class_text[20];
+			strcpy(class_text, categories[max_idx]);
+			uint8_t class_buffer[20];
+			memset(class_buffer, 0, 20);
+			sprintf(class_buffer, "%s\r\n", class_buffer);
+			// send category string through nRF24L01
+			NRF_transmit(class_buffer, 20);
   	}
-//  	else
-//  	{
-//  		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_RESET);
-//  	}
-
-
+  	else
+  	{
+  		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_RESET);
+  	}
 
     /* USER CODE END WHILE */
 
@@ -273,7 +346,7 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  HAL_RCC_MCOConfig(RCC_MCO1, RCC_MCO1SOURCE_HSI, RCC_MCODIV_1);
+  HAL_RCC_MCOConfig(RCC_MCO1, RCC_MCO1SOURCE_HSI, RCC_MCODIV_2);
 }
 
 /**
@@ -378,7 +451,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -494,6 +567,9 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOC, SPI_CE_Pin|SPI_CSN_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : Blue_Button_Pin */
@@ -501,6 +577,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(Blue_Button_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : SPI_CE_Pin SPI_CSN_Pin */
+  GPIO_InitStruct.Pin = SPI_CE_Pin|SPI_CSN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PA8 */
   GPIO_InitStruct.Pin = GPIO_PIN_8;

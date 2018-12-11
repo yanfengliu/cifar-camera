@@ -80,6 +80,10 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define Blue_Button_Pin GPIO_PIN_0
 #define Blue_Button_GPIO_Port GPIOA
+#define SPI_CE_Pin GPIO_PIN_4
+#define SPI_CE_GPIO_Port GPIOC
+#define SPI_CSN_Pin GPIO_PIN_5
+#define SPI_CSN_GPIO_Port GPIOC
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
