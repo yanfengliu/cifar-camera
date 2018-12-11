@@ -6,3 +6,10 @@ Debug/
 *.map
 *.o
 *.su
+camera/camera.ioc
+camera/Debug/camera.elf
+camera/Debug/camera.hex
+camera/Debug/camera.list
+camera/Debug/camera.map
+camera/Debug/Src/main.o
+camera/Debug/Src/main.su
