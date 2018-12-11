@@ -1,1 +1,8 @@
 Debug/
+*.ioc
+*.elf
+*.hex
+*.list
+*.map
+*.o
+*.su
